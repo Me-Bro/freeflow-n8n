@@ -1,3 +1,6 @@
+# Both services read their settings from the root .env (Compose loads it for ${...}),
+# but each container only receives the variables listed under its `environment`,
+# so n8n never sees the LLM provider keys.
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -6,7 +9,17 @@ services:
     ports:
       # Bound to localhost only; remove "127.0.0.1:" to expose on your LAN
       - "127.0.0.1:5678:5678"
-    env_file: .env
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+      TZ: ${TZ:-Asia/Kolkata}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: ${N8N_PORT:-5678}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: ${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS:-true}
+      N8N_RUNNERS_ENABLED: ${N8N_RUNNERS_ENABLED:-true}
+      N8N_DIAGNOSTICS_ENABLED: ${N8N_DIAGNOSTICS_ENABLED:-false}
     volumes:
       # n8n's database (SQLite), credentials, and settings
       - n8n_data:/home/node/.n8n
@@ -14,6 +27,27 @@ services:
       - ./workflows:/home/node/workflows
       # Scratch folder for workflows that read/write files
       - ./files:/files
+
+  # OpenAI-compatible gateway over free LLM providers.
+  # From n8n: base URL http://llm-gateway:8080/v1, API key = GATEWAY_API_KEY.
+  llm-gateway:
+    build: ./llm-gateway
+    container_name: llm-gateway
+    restart: unless-stopped
+    init: true
+    ports:
+      # For calling it from this computer (curl, scripts); n8n uses the Docker network
+      - "127.0.0.1:8080:8080"
+    environment:
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:?set GATEWAY_API_KEY in .env}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      # Edit models/providers without rebuilding: `docker compose restart llm-gateway`
+      - ./llm-gateway/providers.json:/app/providers.json:ro
 
 volumes:
   n8n_data:

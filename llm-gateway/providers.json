@@ -1,0 +1,44 @@
+{
+  "strategy": "priority",
+  "providers": [
+    {
+      "name": "groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "keyEnv": "GROQ_API_KEY",
+      "models": {
+        "fast": "openai/gpt-oss-120b",
+        "smart": "openai/gpt-oss-120b",
+        "json": "openai/gpt-oss-120b",
+        "vision": "qwen/qwen3.8-27b"
+      }
+    },
+    {
+      "name": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "keyEnv": "GEMINI_API_KEY",
+      "models": {
+        "fast": "gemini-3.6-flash",
+        "smart": "gemini-3.6-flash",
+        "json": "gemini-3.6-flash",
+        "vision": "gemini-3.6-flash"
+      }
+    },
+    {
+      "name": "cerebras",
+      "baseUrl": "https://api.cerebras.ai/v1",
+      "keyEnv": "CEREBRAS_API_KEY",
+      "models": {}
+    },
+    {
+      "name": "openrouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "keyEnv": "OPENROUTER_API_KEY",
+      "models": {
+        "fast": "google/gemma-4-31b-it:free",
+        "smart": "google/gemma-4-31b-it:free",
+        "json": "google/gemma-4-31b-it:free",
+        "vision": "google/gemma-4-31b-it:free"
+      }
+    }
+  ]
+}

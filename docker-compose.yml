@@ -1,0 +1,19 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      # Bound to localhost only; remove "127.0.0.1:" to expose on your LAN
+      - "127.0.0.1:5678:5678"
+    env_file: .env
+    volumes:
+      # n8n's database (SQLite), credentials, and settings
+      - n8n_data:/home/node/.n8n
+      # Shared folder for exporting/importing workflows as JSON (version-controlled)
+      - ./workflows:/home/node/workflows
+      # Scratch folder for workflows that read/write files
+      - ./files:/files
+
+volumes:
+  n8n_data:

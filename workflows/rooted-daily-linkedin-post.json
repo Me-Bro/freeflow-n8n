@@ -1,0 +1,334 @@
+{
+  "id": "RootEdLinkedIn01",
+  "name": "RootEd: daily LinkedIn post",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Every day at 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
+      "name": "Test run",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
+      "name": "Build prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// ===== SETTINGS: edit these =====\nconst SETTINGS = {\n  approverEmail: 'you@example.com', // where the daily draft is sent\n  fromEmail: 'you@example.com',     // must be allowed by your SMTP account\n  author: 'a member of the team at Rural Root Cloud that builds RootEd',\n  siteUrl: 'https://rooted.ruralrootcloud.com/',\n};\n\n// ===== What Claude knows about RootEd (taken from the website) =====\nconst BRIEF = `\nRootEd is a school management platform built by Rural Root Cloud Tech Services And Training (India).\nTagline: \"Run your school, college or coaching center — not five spreadsheets.\"\nWho it's for: schools, colleges, and coaching/tuition centres.\n\nModules (five, all connected, one dataset per school):\n- Academics: attendance (mark a class in one tap), grades, timetable, report cards, academic years — one record per student, not a spreadsheet per teacher.\n- Staff: staff directory, leave requests with approval chains, salary/payroll — not a WhatsApp group and a register.\n- Fee: fee structures, collection, Razorpay online payments and receipts — parents pay online, it reconciles automatically.\n- Expense: expense entries with approval chains and auto-escalation, plus budgets — every rupee spent has a paper trail.\n- Inventory: stock tracking, depreciation, overdue-return alerts — know what the school owns and where it went.\n\nWhy it's different:\n- A dashboard for every role (principal, teacher, accountant, librarian, admin), enforced by role-based access control — a librarian can't see payroll, a teacher can't see budgets.\n- Multi-tenant: each school gets its own subdomain, branding and data; a growing group can onboard new campuses in minutes.\n- English, Hindi, or a merged Hindi+English interface — built for how staff actually read.\n- Approval workflows for leave, expense and purchase requests with auto-escalation — nothing sits forgotten.\n\nSecurity:\n- Tenant isolation enforced at the database layer — a bug can't leak another school's data.\n- Staff government ID, bank account and salary fields encrypted with AES-256-GCM, with a separate key per school.\n- Immutable audit log: every change to sensitive records stored as a before/after diff that can't be edited.\n- Only essential cookies; no advertising or tracking cookies.\n\nPricing: the core system (attendance, fees, staff, inventory) is free forever — no trial, no expiry, no credit card, unlimited staff and students.\nPremium add-ons: dedicated branded email, WhatsApp alerts to parents, SMS alerts, a dedicated payment gateway in the school's name.\n\nOnboarding: a quick call to understand classes, sections, staff and fee structure -> they map the school onto RootEd -> tenant provisioned, live and free from day one -> ongoing training and support, not a one-time handoff.\n\nCompany: Rural Root Cloud designs, builds and maintains digital products and runs practical tech training.\nBelief: \"World-class technology can grow from anywhere — including rural roots.\"\nValues: reliability first, cloud-native, teach rather than hide complexity, from rural to global.\n`.trim();\n\n// One angle per day, rotating, so posts don't repeat themselves\nconst ANGLES = [\n  'The pain of running a school on spreadsheets, registers and WhatsApp groups — and what changes with one connected system',\n  'Spotlight: attendance and report cards (Academics module)',\n  'Spotlight: online fee collection with Razorpay and automatic reconciliation',\n  'Spotlight: staff leave approvals and payroll in one place',\n  'Spotlight: expense approvals, auto-escalation and budgets — every rupee has a paper trail',\n  'Spotlight: inventory tracking and overdue-return alerts',\n  'Why school data needs bank-grade protection: tenant isolation at the database layer',\n  'Encrypted staff PII with a separate key per school — explained simply for a principal',\n  'The immutable audit log: always being able to answer \"who changed this, and when?\"',\n  'Software in Hindi, English, or both — building for how staff actually read',\n  'The core is free forever, with no trial and no credit card — why we chose that',\n  'One dashboard per role: what a principal, a teacher and an accountant each see',\n  'Building world-class technology from rural roots — the mission behind RootEd',\n  'From first call to going live: what onboarding a school actually looks like',\n  'RootEd for coaching and tuition centres, not just schools',\n  'Premium add-ons: WhatsApp and SMS alerts that reach parents where they already are',\n  'A practical tip for school administrators about running admin work better, with a light mention of RootEd',\n];\nconst FORMATS = [\n  'a short story or scenario from a typical school day',\n  'a numbered list of 3-5 crisp points',\n  'a myth vs. reality contrast',\n  'a question to school leaders followed by an answer',\n  'a before/after comparison',\n  'a lesson learned while building the product',\n  'a direct, confident explainer',\n];\n\nconst now = new Date();\nconst dayIndex = Math.floor(now.getTime() / 86400000);\nconst angle = ANGLES[dayIndex % ANGLES.length];\nconst format = FORMATS[dayIndex % FORMATS.length];\n\nconst staticData = $getWorkflowStaticData('global');\nconst history = (staticData.history || []).slice(-14);\nconst historyText = history.length\n  ? history.map(h => `- ${h.date}: [${h.angle}] opened with \"${h.hook}\"`).join('\\n')\n  : '(none yet)';\n\nconst system = `You write LinkedIn posts for ${SETTINGS.author}, posted from their personal LinkedIn profile, to promote RootEd.\n\nProduct brief — the only source of facts you may use:\n<brief>\n${BRIEF}\n</brief>\n\nHow to write:\n- Audience: school owners, principals, administrators and coaching-centre founders, mostly in India.\n- Voice: first person, warm, practical and confident; a builder talking to peers, not an advertisement.\n- Length: 120-220 words. First line is a hook of at most 12 words that makes people tap \"see more\".\n- Short paragraphs of 1-2 lines with blank lines between them. Plain text only: LinkedIn does not render markdown, so no asterisks, no headings, no bold.\n- At most two emoji, only if they add something.\n- End with a soft call to action and the link ${SETTINGS.siteUrl} on its own line, then 3-5 relevant hashtags on the last line.\n- Never invent statistics, customer names, testimonials, partnerships, awards or features that are not in the brief. If a point needs a number the brief doesn't give, make it without the number.\n- Don't reuse a hook or opening idea from the recent posts listed in the request.`;\n\nconst user = `Write today's post.\n\nAngle: ${angle}\nFormat: ${format}\n\nRecent posts (avoid repeating these openings and ideas):\n${historyText}`;\n\nconst requestBody = {\n  model: 'claude-opus-5-5',\n  max_tokens: 16000,\n  fallbacks: 'default',\n  output_config: {\n    effort: 'medium',\n    format: {\n      type: 'json_schema',\n      schema: {\n        type: 'object',\n        properties: {\n          hook: { type: 'string', description: 'The first line of the post' },\n          post: { type: 'string', description: 'The full post text, ready to publish' },\n        },\n        required: ['hook', 'post'],\n        additionalProperties: false,\n      },\n    },\n  },\n  system,\n  messages: [{ role: 'user', content: user }],\n};\n\nreturn [{ json: { settings: SETTINGS, angle, format, requestBody } }];\n"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
+      "name": "Claude: write post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000005",
+      "name": "Parse draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst ctx = $('Build prompt').first().json;\n\nif (res.stop_reason === 'refusal') {\n  throw new Error('Claude declined to write this post: ' + JSON.stringify(res.stop_details));\n}\nif (res.stop_reason === 'max_tokens') {\n  throw new Error('Claude ran out of tokens before finishing the post.');\n}\nconst textBlock = (res.content || []).find(b => b.type === 'text');\nif (!textBlock) {\n  throw new Error('No text in Claude response: ' + JSON.stringify(res).slice(0, 500));\n}\nconst draft = JSON.parse(textBlock.text);\n\nreturn [{ json: { ...draft, angle: ctx.angle, settings: ctx.settings } }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000006",
+      "name": "Email me the draft",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        100
+      ],
+      "webhookId": "b7e1c2d3-5f60-4a71-9b82-c3d4e5f60718",
+      "parameters": {
+        "operation": "sendAndWait",
+        "fromEmail": "={{ $json.settings.fromEmail }}",
+        "toEmail": "={{ $json.settings.approverEmail }}",
+        "subject": "=LinkedIn draft for today: {{ $json.hook }}",
+        "message": "=Today's angle: {{ $json.angle }}\n\n{{ $json.post }}\n\nOpen the form to edit the text, then choose \"Post it\" or \"Skip today\". (The link only works on the computer running n8n.)",
+        "responseType": "customForm",
+        "defineForm": "fields",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Post",
+              "fieldType": "textarea",
+              "defaultValue": "={{ $json.post }}",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Decision",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Post it"
+                  },
+                  {
+                    "option": "Skip today"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Review & post",
+          "responseFormTitle": "Today's LinkedIn post",
+          "responseFormDescription": "Edit the text if you like, then choose what to do.",
+          "responseFormButtonLabel": "Submit",
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 12,
+              "resumeUnit": "hours"
+            }
+          },
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000007",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1d2e3f4-0001-4000-8000-000000000001",
+              "leftValue": "={{ $json.data?.Decision ?? '' }}",
+              "rightValue": "Post it",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "c1d2e3f4-0001-4000-8000-000000000002",
+              "leftValue": "={{ ($json.data?.Post ?? '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000008",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "authentication": "standard",
+        "postAs": "person",
+        "person": "",
+        "text": "={{ $json.data.Post }}",
+        "shareMediaCategory": "NONE",
+        "additionalFields": {
+          "visibility": "PUBLIC"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-4000-8000-000000000009",
+      "name": "Remember post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst draft = $('Parse draft').first().json;\nconst history = staticData.history || [];\nhistory.push({\n  date: new Date().toISOString().slice(0, 10),\n  angle: draft.angle,\n  hook: draft.hook,\n});\nstaticData.history = history.slice(-30);\nreturn [{ json: { saved: true, historySize: staticData.history.length } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Every day at 9:00": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test run": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude: write post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: write post": {
+      "main": [
+        [
+          {
+            "node": "Parse draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse draft": {
+      "main": [
+        [
+          {
+            "node": "Email me the draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email me the draft": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Remember post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {}
+}

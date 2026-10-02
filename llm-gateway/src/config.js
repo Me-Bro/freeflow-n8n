@@ -51,7 +51,7 @@ export function buildConfig(raw, env) {
     strategy,
     gatewayKey: env.GATEWAY_API_KEY,
     host: env.HOST ?? '127.0.0.1',
-    port: Number(env.PORT ?? 8080),
+    port: Number(env.PORT ?? 18080),
     providers,
     skipped: raw.providers.filter(p => !env[p.keyEnv]).map(p => p.name),
   };

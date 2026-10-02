@@ -16,7 +16,7 @@ Test run ──────────┘                                      
 ## One-time setup
 
 ### 1. n8n account
-Open http://localhost:5678 and create the owner account.
+Open http://localhost:15678 and create the owner account.
 
 ### 2. Anthropic API key
 1. https://console.anthropic.com → API Keys → **Create key**.
@@ -33,7 +33,7 @@ Open http://localhost:5678 and create the owner account.
 ### 4. LinkedIn app
 1. Go to https://www.linkedin.com/developers/apps → **Create app**. LinkedIn requires the app to be linked to a LinkedIn Page, so use the Rural Root Cloud page or create one.
 2. **Products** tab: add **Share on LinkedIn** and **Sign In with LinkedIn using OpenID Connect**. Both are approved instantly.
-3. **Auth** tab: add the redirect URL `http://localhost:5678/rest/oauth2-credential/callback`, then copy the Client ID and Client Secret.
+3. **Auth** tab: add the redirect URL `http://localhost:15678/rest/oauth2-credential/callback`, then copy the Client ID and Client Secret.
 4. In n8n: **Add credential → LinkedIn OAuth2 API**
    - Turn **off** *Organization Support* and turn **off** *Legacy*. Both default to on and will break sign-in.
    - Paste the Client ID and Secret → **Connect my account**.

@@ -1,0 +1,278 @@
+{
+  "id": "SheetLeadEmail01",
+  "name": "Applicants sheet: prepare internship email",
+  "active": false,
+  "nodes": [
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000001",
+      "name": "Start",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6f2c1a9e-3b47-4d58-9e61-0a1b2c3d4e01",
+      "parameters": {
+        "formTitle": "Email an internship applicant",
+        "formDescription": "Loads the applicants sheet so you can pick who to write to.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Filter applicants (optional)",
+              "placeholder": "Part of a name, college, course, program or email"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Load applicants",
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000002",
+      "name": "Read leads sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "filtersUI": {},
+        "options": {}
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000003",
+      "name": "List leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// ===== SETTINGS: edit these =====\nconst SETTINGS = {\n  subject: 'Regarding Your Application – Next Steps with Rural Root Cloud',\n  signature: 'Best Regards,\\nTeam Rural Root Cloud\\nhttps://ruralrootcloud.com/internship/',\n  meetingTitleSuffix: 'RR Cloud',     // \"Jitendra <> RR Cloud\"\n  timeZone: 'Asia/Kolkata',\n  defaultStartTime: '10:00am',        // one of the 15-minute slots, e.g. '2:30pm'\n  defaultMeetLink: '',                // e.g. https://meet.google.com/abc-defg-hij\n  model: 'json',                      // llm-gateway alias, see llm-gateway/providers.json\n};\n\n// Columns are matched by header name, ignoring case and extra spaces. Add your headers if they differ.\nconst COLUMNS = {\n  name: ['name', 'full name'],\n  email: ['email', 'email address', 'e-mail'],\n  org: ['college / previous company', 'college', 'company'],\n  program: ['program want to enroll', 'program'],\n};\nconst MAX_OPTIONS = 300;\nconst DURATIONS = ['30 minutes', '45 minutes', '60 minutes'];\n// Start times offered in the dropdown: every 15 minutes from 8:00am to 8:00pm\nconst START_TIMES = [];\nfor (let m = 8 * 60; m <= 20 * 60; m += 15) {\n  const h = Math.floor(m / 60);\n  START_TIMES.push((h % 12 || 12) + ':' + String(m % 60).padStart(2, '0') + (h < 12 ? 'am' : 'pm'));\n}\n\nconst EMAIL_RE = /[^\\s@<>\"]+@[^\\s@<>\"]+\\.[^\\s@<>\"]+/;\nconst norm = s => String(s).trim().toLowerCase().replace(/\\s+/g, ' ');\n\nfunction pick(row, candidates) {\n  for (const c of candidates) {\n    const key = Object.keys(row).find(k => norm(k) === c);\n    if (key && String(row[key]).trim()) return String(row[key]).trim();\n  }\n  return '';\n}\n\nconst filter = norm($('Start').first().json['Filter applicants (optional)'] ?? '');\nconst rows = $input.all().map(i => i.json).filter(r => r.row_number !== undefined);\n\nlet skippedNoEmail = 0;\nconst leads = [];\nfor (const row of rows) {\n  const { row_number, ...fields } = row;\n  let email = pick(fields, COLUMNS.email).match(EMAIL_RE)?.[0] ?? '';\n  if (!email) {\n    // No recognised email column: fall back to any cell that looks like an address\n    email = Object.values(fields).map(v => String(v).match(EMAIL_RE)?.[0]).find(Boolean) ?? '';\n  }\n  if (!email) {\n    if (Object.values(fields).some(v => String(v).trim())) skippedNoEmail++;\n    continue;\n  }\n  const name = pick(fields, COLUMNS.name);\n  const org = pick(fields, COLUMNS.org);\n  const program = pick(fields, COLUMNS.program);\n  const label = ['#' + row_number, name || '(no name)', org, program, email].filter(Boolean).join(' · ');\n  leads.push({ rowNumber: row_number, label, name, email, org, program, fields });\n}\n\nconst matching = filter\n  ? leads.filter(l => Object.values(l.fields).some(v => norm(v).includes(filter)))\n  : leads;\nif (!matching.length) {\n  throw new Error(filter\n    ? 'No applicants match \"' + filter + '\". Run the form again with a different filter.'\n    : 'No rows with an email address were found in the sheet.');\n}\nconst shown = matching.slice(0, MAX_OPTIONS);\n\nconst notes = [shown.length + ' of ' + matching.length + ' applicants shown' + (filter ? ' (filter: \"' + filter + '\")' : '') + '.'];\nif (matching.length > shown.length) notes.push('Use the filter on the first page to narrow the list.');\nif (skippedNoEmail) notes.push(skippedNoEmail + ' row(s) without an email address were skipped.');\n\nconst formFields = [\n  {\n    fieldLabel: 'Applicant',\n    fieldType: 'dropdown',\n    fieldOptions: { values: shown.map(l => ({ option: l.label })) },\n    requiredField: true,\n  },\n  { fieldLabel: 'Meeting date', fieldType: 'date', requiredField: true },\n  {\n    fieldLabel: 'Start time (' + SETTINGS.timeZone + ')',\n    fieldType: 'dropdown',\n    fieldOptions: { values: START_TIMES.map(option => ({ option })) },\n    defaultValue: SETTINGS.defaultStartTime,\n    requiredField: true,\n  },\n  {\n    fieldLabel: 'Duration',\n    fieldType: 'dropdown',\n    fieldOptions: { values: DURATIONS.map(option => ({ option })) },\n    defaultValue: DURATIONS[0],\n    requiredField: true,\n  },\n  {\n    fieldLabel: 'Google Meet link',\n    fieldType: 'text',\n    defaultValue: SETTINGS.defaultMeetLink,\n    placeholder: 'https://meet.google.com/...',\n    requiredField: true,\n  },\n  {\n    fieldLabel: 'Anything specific to say? (optional)',\n    fieldType: 'textarea',\n    placeholder: 'e.g. resume already received; mention the DevOps batch starting in April',\n  },\n];\n\nreturn [{ json: { formFields, description: notes.join(' '), leads: shown, settings: SETTINGS } }];\n"
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000004",
+      "name": "Pick a lead",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        0
+      ],
+      "webhookId": "6f2c1a9e-3b47-4d58-9e61-0a1b2c3d4e02",
+      "parameters": {
+        "operation": "page",
+        "defineForm": "json",
+        "jsonOutput": "={{ $json.formFields }}",
+        "options": {
+          "formTitle": "Pick an applicant and the meeting",
+          "formDescription": "={{ $json.description }}",
+          "buttonLabel": "Write the email"
+        }
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000005",
+      "name": "Build prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// A real email we sent, used as the style reference for the paragraphs the model writes\nconst EXAMPLE = `\nWe have reviewed your internship request. Kindly share your resume.\n\nWe understand that one of the biggest challenges IT graduates face in off-campus hiring is the requirement for experience. But for a fresher, the real question is — how do you gain experience without getting your first job?\n\nTo better understand your background, skills, and career goals, we would like to schedule a short meeting with you. This discussion will help us guide you appropriately and explain how our structured Internship Program can help you build real-world experience and industry readiness.\n`.trim();\n\nconst form = $input.first().json;\nconst ctx = $('List leads').first().json;\nconst settings = ctx.settings;\n\nconst rowNumber = Number(/^#(\\d+)/.exec(form['Applicant'] ?? '')?.[1]);\nconst lead = ctx.leads.find(l => l.rowNumber === rowNumber);\nif (!lead) throw new Error('Could not find the selected applicant: ' + form['Applicant']);\n\n// ----- Meeting line, formatted like Google Calendar: \"Tuesday, March 17 · 10:00 – 10:30am\"\nfunction parseTime(s) {\n  const m = String(s).trim().toLowerCase().replace(/[\\s.]/g, '').match(/^(\\d{1,2})(?::(\\d{2}))?(am|pm)?$/);\n  if (!m) return null;\n  let h = Number(m[1]);\n  const min = Number(m[2] ?? 0);\n  if (m[3]) {\n    if (h < 1 || h > 12) return null;\n    h = (h % 12) + (m[3] === 'pm' ? 12 : 0);\n  }\n  if (h > 23 || min > 59) return null;\n  return h * 60 + min;\n}\nconst clock = mins => {\n  const h = Math.floor(mins / 60) % 24;\n  return { time: (h % 12 || 12) + ':' + String(mins % 60).padStart(2, '0'), ampm: h < 12 ? 'am' : 'pm' };\n};\n\nconst timeKey = Object.keys(form).find(k => k.startsWith('Start time'));\nconst start = parseTime(form[timeKey]);\nif (start === null) throw new Error('Could not read the start time \"' + form[timeKey] + '\". Use a format like 10:00am.');\nconst duration = parseInt(form['Duration'], 10) || 30;\nconst a = clock(start);\nconst b = clock(start + duration);\nconst timeRange = a.ampm === b.ampm\n  ? a.time + ' – ' + b.time + b.ampm\n  : a.time + a.ampm + ' – ' + b.time + b.ampm;\n\nconst dateValue = String(form['Meeting date'] ?? '').slice(0, 10);\nconst date = new Date(dateValue + 'T00:00:00Z');\nif (isNaN(date)) throw new Error('Could not read the meeting date \"' + form['Meeting date'] + '\".');\nconst dateText = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });\n\nconst meetLink = String(form['Google Meet link'] ?? '').trim();\n\n// First name, capitalised (\"jitendra kumar\" -> \"Jitendra\")\nconst rawFirst = (lead.name.split(/\\s+/)[0] || '').toLowerCase();\nconst firstName = rawFirst ? rawFirst[0].toUpperCase() + rawFirst.slice(1) : '';\n\nconst meeting = {\n  title: (firstName || 'Applicant') + ' <> ' + settings.meetingTitleSuffix,\n  when: dateText + ' · ' + timeRange,\n  timeZone: settings.timeZone,\n  link: meetLink,\n};\n\n// ----- Prompt for the paragraphs between the greeting and the meeting details\nconst extra = String(form['Anything specific to say? (optional)'] ?? '').trim();\nconst applicantDetails = Object.entries(lead.fields)\n  .filter(([k, v]) => String(v).trim() && !/phone|address|timestamp/i.test(k))\n  .map(([k, v]) => '- ' + k.trim() + ': ' + String(v).trim())\n  .join('\\n');\n\nconst system = `You write the middle part of emails from Team Rural Root Cloud, an Indian tech company, to people who applied for its internship and training programs.\n\nThe email around your text is fixed: it already starts with \"Dear <name>,\" and \"Greetings from Rural Root Cloud.\", and after your text come the meeting details (date, time, Google Meet link), \"Looking forward to your response.\" and the signature. Do not write any of those parts.\n\nWrite 3 short paragraphs in the same tone, structure and length as this example from a real email:\n<example>\n${EXAMPLE}\n</example>\n\n1. Say we have reviewed their request, naming the program they applied for, and ask them to share their resume.\n2. One relatable challenge someone with their background faces (fresher vs. experienced, their course, their year), ending with a question like the example.\n3. We would like a short meeting to understand their background, skills and career goals, and how the program they applied for can help them.\n\nRules:\n- Formal, warm Indian business English. Plain text, no markdown, no bullet points.\n- Use only the details given. Never invent facts about the applicant, the program, fees, dates, stipends or job guarantees. Never leave placeholders like [Name].\n- Do not mention the meeting date, time or link.\n\nReply with only a JSON object: {\"paragraphs\": [\"...\", \"...\", \"...\"]}`;\n\nconst user = `Applicant (from the sheet, row ${lead.rowNumber}):\n${applicantDetails}\n${extra ? '\\nExtra instructions from me: ' + extra : ''}`;\n\nconst requestBody = {\n  model: settings.model,\n  temperature: 0.5,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: system },\n    { role: 'user', content: user },\n  ],\n};\n\nreturn [{ json: { lead, firstName, meeting, settings, requestBody } }];\n"
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000006",
+      "name": "LLM: write email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://llm-gateway:8080/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000007",
+      "name": "Parse email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst ctx = $('Build prompt').first().json;\n\nconst content = String(res.choices?.[0]?.message?.content ?? '');\nlet draft;\ntry {\n  draft = JSON.parse(content);\n} catch {\n  // Some free models wrap the JSON in prose or code fences\n  const match = content.match(/\\{[\\s\\S]*\\}/);\n  try { draft = match && JSON.parse(match[0]); } catch {}\n}\nlet paragraphs = Array.isArray(draft?.paragraphs) ? draft.paragraphs : [draft?.body];\nparagraphs = paragraphs.map(p => String(p ?? '').trim()).filter(Boolean);\nif (!paragraphs.length) {\n  throw new Error('The model did not return the email paragraphs: ' + content.slice(0, 500));\n}\n\nconst { meeting, settings } = ctx;\nconst body = [\n  'Dear ' + (ctx.firstName || 'Applicant') + ',',\n  'Greetings from Rural Root Cloud.',\n  ...paragraphs,\n  [\n    'Meeting Details',\n    meeting.title,\n    meeting.when,\n    'Time zone: ' + meeting.timeZone,\n    'Google Meet joining info',\n    'Video call link: ' + meeting.link,\n  ].join('\\n'),\n  'Looking forward to your response.',\n  settings.signature,\n].join('\\n\\n');\n\nconst html = s => String(s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\\n/g, '<br>');\n\nreturn [{\n  json: {\n    to: ctx.lead.email,\n    subject: settings.subject,\n    body,\n    model: res.model ?? '',\n    html: { to: html(ctx.lead.label), subject: html(settings.subject), body: html(body) },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000008",
+      "name": "Create Gmail draft",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "resource": "draft",
+        "operation": "create",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "sendTo": "={{ $json.to }}"
+        }
+      }
+    },
+    {
+      "id": "5e1ead00-0001-4000-8000-000000000009",
+      "name": "Show draft",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        0
+      ],
+      "webhookId": "6f2c1a9e-3b47-4d58-9e61-0a1b2c3d4e03",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "=<h2>Draft saved in Gmail</h2>\n<p><b>To:</b> {{ $('Parse email').first().json.html.to }}<br>\n<b>Subject:</b> {{ $('Parse email').first().json.html.subject }}</p>\n<p>{{ $('Parse email').first().json.html.body }}</p>\n<p><a href=\"https://mail.google.com/mail/u/0/#drafts{{ $json.message?.id ? '?compose=' + $json.message.id : '' }}\" target=\"_blank\">Open the draft in Gmail</a> to review and send it.</p>\n<p><small>Written by {{ $('Parse email').first().json.model || 'llm-gateway' }}. Not happy with it? Delete the draft and run the form again.</small></p>"
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Read leads sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read leads sheet": {
+      "main": [
+        [
+          {
+            "node": "List leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List leads": {
+      "main": [
+        [
+          {
+            "node": "Pick a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick a lead": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prompt": {
+      "main": [
+        [
+          {
+            "node": "LLM: write email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: write email": {
+      "main": [
+        [
+          {
+            "node": "Parse email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse email": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gmail draft": {
+      "main": [
+        [
+          {
+            "node": "Show draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {}
+}

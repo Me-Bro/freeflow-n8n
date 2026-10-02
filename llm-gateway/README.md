@@ -11,14 +11,14 @@ OpenAI-compatible endpoint that sends each request to an available free provider
    docker compose up -d --build llm-gateway
    ```
 
-   It listens on `localhost:8080` for this computer and on `http://llm-gateway:8080` inside the Docker network (that's the URL n8n uses). `providers.json` is mounted into the container, so model changes only need `docker compose restart llm-gateway`.
+   It listens on `localhost:18080` for this computer and on `http://llm-gateway:8080` inside the Docker network (that's the URL n8n uses). `providers.json` is mounted into the container, so model changes only need `docker compose restart llm-gateway`.
 
    Without Docker (Node 22+, no dependencies): `npm start` / `npm test` in this folder.
 
 3. Call it like OpenAI:
 
    ```sh
-   curl http://127.0.0.1:8080/v1/chat/completions \
+   curl http://127.0.0.1:18080/v1/chat/completions \
      -H "Authorization: Bearer $GATEWAY_API_KEY" -H "Content-Type: application/json" \
      -d '{"model":"smart","messages":[{"role":"user","content":"Say hi"}]}'
    ```
@@ -47,6 +47,6 @@ Cooling providers are still tried, just last. If every provider fails, the gatew
 |---|---|---|
 | `GATEWAY_API_KEY` | required | key callers send as `Authorization: Bearer …` |
 | `GROQ_API_KEY`, `GEMINI_API_KEY`, `CEREBRAS_API_KEY`, `OPENROUTER_API_KEY` | | providers without a key are skipped |
-| `HOST` / `PORT` | `127.0.0.1` / `8080` | |
+| `HOST` / `PORT` | `127.0.0.1` / `18080` (`8080` in Docker) | |
 | `PROVIDERS_FILE` | `./providers.json` | |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

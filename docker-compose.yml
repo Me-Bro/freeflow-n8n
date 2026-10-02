@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     ports:
       # Bound to localhost only; remove "127.0.0.1:" to expose on your LAN
-      - "127.0.0.1:5678:5678"
+      - "127.0.0.1:15678:5678"
     environment:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
@@ -16,7 +16,7 @@ services:
       N8N_HOST: ${N8N_HOST:-localhost}
       N8N_PORT: ${N8N_PORT:-5678}
       N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
-      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:15678/}
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: ${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS:-true}
       N8N_RUNNERS_ENABLED: ${N8N_RUNNERS_ENABLED:-true}
       N8N_DIAGNOSTICS_ENABLED: ${N8N_DIAGNOSTICS_ENABLED:-false}
@@ -37,7 +37,7 @@ services:
     init: true
     ports:
       # For calling it from this computer (curl, scripts); n8n uses the Docker network
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:18080:8080"
     environment:
       GATEWAY_API_KEY: ${GATEWAY_API_KEY:?set GATEWAY_API_KEY in .env}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
@@ -51,3 +51,6 @@ services:
 
 volumes:
   n8n_data:
+    # Pinned to the name Compose generated when this folder was "n8n-101",
+    # so renaming the folder (which changes the project name) keeps the data.
+    name: n8n-101_n8n_data
